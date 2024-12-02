@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 
 current_directory=os.getcwd()
 print(f"current director:{current_directory}")
-file_names=[f'data/EEGsigsimagined_subjectP1_session20170901_block{i}.mat'for i in range(1,7)]
+file_names=[f'data/EEGsigsimagined_subjectP1_session20170901_block{i}.mat'for i in range(1,6)]+[f'data/DATASET/EEGsigsactive_subjectP2_session20230927_block{i}.mat' for i in range(1, 6)]
 
-for file_name in file_names:
+for file_index,file_name in enumerate(file_names):
     data=scipy.io.loadmat(file_name)
     print(data.keys())
     key_data=data['EEG_data']
@@ -20,7 +20,6 @@ for file_name in file_names:
     print(key_data.shape)
     print(key2_data)
 
-for file_name in file_names:
     data=scipy.io.loadmat(file_name)
     key_data=data['EEG_data']
     #df=pd.DataFrame(key_data)
@@ -39,6 +38,7 @@ for file_name in file_names:
         plt.ylabel('amplitude')
     
     plt.tight_layout()
+    plt.savefig(str(file_index)+'.png')
     plt.show()
     
     

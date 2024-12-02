@@ -3,7 +3,7 @@
 '''
 import pandas as pd
 import numpy as np
-from graph_construting import read_data
+from graph_construting import *
 import matplotlib.pyplot as plt
 
 # T = 25
@@ -46,7 +46,7 @@ class MarkovChain:
         self.trans = self.trans / np.where(row_sums == 0, 1, row_sums)  # 避免除以零
 
 def adj2stat_bynodes(graph_adjacency_matrix_list,node_index,channal_num):
-    states = set([i for i in range(channal_num+1)])
+    states = set([i for i in range(channal_num)])
     seq=[]
     threshold = 5
     for graph_adjacency_matrix in graph_adjacency_matrix_list:
@@ -54,6 +54,7 @@ def adj2stat_bynodes(graph_adjacency_matrix_list,node_index,channal_num):
     return states,seq
 
 def adj2stat_eigenvalue(graph_adjacency_matrix_list,node_index,channal_num):
+    #TODO
     states =set()
     seq=[]
     threshold = 5
@@ -61,6 +62,32 @@ def adj2stat_eigenvalue(graph_adjacency_matrix_list,node_index,channal_num):
         eigenvalues, eigenvectors = np.linalg.eig(graph_adjacency_matrix)
         #seq.append(eigenvalues)
     return states,seq
+
+def adj2stat_connected_components(graph_adjacency_matrix_list,channal_num):
+    states = set([i+1 for i in range(channal_num)])
+    seq=[]
+    threshold = 5
+    for graph_adjacency_matrix in graph_adjacency_matrix_list:
+        seq.append(count_connected_components(graph_adjacency_matrix > threshold))
+    return states,seq
+
+def count_connected_components(adj_matrix):
+    n = len(adj_matrix)
+    visited = [False] * n
+    def dfs(node):
+        # 标记当前节点为已访问
+        visited[node] = True
+        # 访问所有相邻的未访问节点
+        for neighbor in range(n):
+            if adj_matrix[node][neighbor] != 0 and not visited[neighbor]:
+                dfs(neighbor)
+    connected_components = 0
+    for i in range(n):
+        if not visited[i]:
+            # 从未访问的节点开始新的 DFS，找到一个连通分支
+            dfs(i)
+            connected_components += 1
+    return connected_components
 
 def forier_transform(data):
     #data维度为[T,N]
@@ -81,16 +108,39 @@ def forier_transform(data):
     plt.legend()
     plt.show()
 
+def get_features(eeg_data,lables,corr_matrixs):
+    transition_matrices = []
+    channal_num = 24
+    for i in range(len(eeg_data)):
+        MC = []
+        transition_matrix = []
+        for j in range(channal_num):
+            states, seq = adj2stat_bynodes(corr_matrixs[i], j, channal_num)
+            MC.append(MarkovChain(states))
+            MC[j].fit(seq)
+            # print(f"Sample {i}, Channel {j}: Number of states = {len(states)}")  # 打印状态数量
+            transition_matrix.append(MC[j].trans)
+        states, seq = adj2stat_connected_components(corr_matrixs[0], channal_num)
+        MC_connected_components = MarkovChain(states)
+        transition_matrix.append(MC_connected_components.trans)
+        transition_matrices.append((transition_matrix))
+    return np.array(transition_matrices), np.array(lables)
+
 if __name__ == "__main__":
     eeg_data,lables,corr_matrixs = read_data()
     forier_transform(eeg_data[0])
     channal_num = 24
-    MC=[None for i in range(channal_num)]
-    for i in range(channal_num):
-        states,seq = adj2stat_bynodes(corr_matrixs[0],i,channal_num)
-        MC[i] = MarkovChain(states)
-        MC[i].fit(seq)
-        #print(seq)
-        #print(states)
-        #print(MC[i].pi)
-        #print(MC[i].trans.shape)
+
+    states, seq = adj2stat_connected_components(corr_matrixs[0],channal_num)
+    MC = MarkovChain(states)
+    MC.fit(seq)
+    print(seq)
+    print(states)
+    print(MC.pi)
+    print(MC.trans)
+
+    # MC=[None for i in range(channal_num)]
+    #for i in range(channal_num):
+        #states,seq = adj2stat_bynodes(corr_matrixs[0],i,channal_num)
+        #MC[i] = MarkovChain(states)
+        #MC[i].fit(seq)
