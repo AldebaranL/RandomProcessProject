@@ -10,40 +10,23 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import networkx as nx
 import os
+from markov_chain import *
+from classification import *
 
 print("Current working directory:", os.getcwd())
 
-# 定义 MLP 模型
-class MLPClassifier(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
-        super(MLPClassifier, self).__init__()
-        self.model = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim,hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, output_dim),
-            nn.Softmax(dim=1)  # 用于多分类
-        )
-
-    def forward(self, x):
-        return self.model(x)
-    
-
-def read_data():
+def read_all_data():
     # 定义文件名
-    healthy_file_names = [f'EEGsigsimagined_subjectP1_session20170901_block{i}.mat' for i in range(1, 4)]
-    sick_file_names_1 = [f'EEGsigsactive_subjectP2_session20230927_block{i}.mat' for i in range(1, 4)]
-    sick_file_names_2 = [f'EEGsigsimagined_subjectP2_session20230927_block{i}.mat' for i in range(1, 7)]
-    new_sick_file_names = [f'EEGsigsimagined_subjectP3_session20231006_block{i}.mat' for i in range(1, 6)]
-    additional_test_file_names = [f'EEGsigsimagined_subjectP1_session20170901_block{i}.mat' for i in range(4, 7)]
-    extra_sick_file_names = [f'EEGsigsimagined_subjectP4_session20231010_block{i}.mat' for i in range(1, 6)]
-    extra_test_file_names_1 = [f'EEGsigsimagined_subjectP7_session20231019_block{i}.mat' for i in range(1, 4)]
-    extra_test_file_names_2 = [f'EEGsigsimagined_subjectP8_session20231120_block{i}.mat' for i in range(1, 4)]
-    extra_train_file_names_1 = [f'EEGsigsimagined_subjectP5_session20231013_block{i}.mat' for i in range(1, 4)]
-    extra_train_file_names_2 = [f'EEGsigsimagined_subjectP6_session20231016_block{i}.mat' for i in range(1, 4)]
+    healthy_file_names = [f'data/DATASET/EEGsigsimagined_subjectP1_session20170901_block{i}.mat' for i in range(1, 4)]
+    sick_file_names_1 = [f'data/DATASET/EEGsigsactive_subjectP2_session20230927_block{i}.mat' for i in range(1, 4)]
+    sick_file_names_2 = [f'data/DATASET/EEGsigsimagined_subjectP2_session20230927_block{i}.mat' for i in range(1, 7)]
+    new_sick_file_names = [f'data/DATASET/EEGsigsimagined_subjectP3_session20231006_block{i}.mat' for i in range(1, 6)]
+    additional_test_file_names = [f'data/DATASET/EEGsigsimagined_subjectP1_session20170901_block{i}.mat' for i in range(4, 7)]
+    extra_sick_file_names = [f'data/DATASET/EEGsigsimagined_subjectP4_session20231010_block{i}.mat' for i in range(1, 6)]
+    extra_test_file_names_1 = [f'data/DATASET/EEGsigsimagined_subjectP7_session20231019_block{i}.mat' for i in range(1, 4)]
+    extra_test_file_names_2 = [f'data/DATASET/EEGsigsimagined_subjectP8_session20231120_block{i}.mat' for i in range(1, 4)]
+    extra_train_file_names_1 = [f'data/DATASET/EEGsigsimagined_subjectP5_session20231013_block{i}.mat' for i in range(1, 4)]
+    extra_train_file_names_2 = [f'data/DATASET/EEGsigsimagined_subjectP6_session20231016_block{i}.mat' for i in range(1, 4)]
     total_time = 200
     overlap_rate = 0.6
 
@@ -93,57 +76,6 @@ def read_data():
             extra_test_corr_matrixs_2, extra_train_data_1, extra_train_labels_1, extra_train_corr_matrixs_1, 
             extra_train_data_2, extra_train_labels_2, extra_train_corr_matrixs_2)
 
-def show_graph(corr_matrix, threshold=0.5):
-    G = nx.Graph()
-    num_channels = corr_matrix.shape[0]
-    for i in range(num_channels):
-        G.add_node(i)
-        for j in range(i + 1, num_channels):
-            if np.abs(corr_matrix[i, j]) > threshold:
-                G.add_edge(i, j, weight=corr_matrix[i, j])
-
-    if G.number_of_nodes() == 0:
-        print("Graph is null")
-    else:
-        pos = nx.spring_layout(G)
-        edges = G.edges(data=True)
-
-class MarkovChain:
-    def __init__(self, states):
-        self.states = sorted(states)  # 状态集
-        self.states2id = {i: j for j, i in enumerate(self.states)}
-        self.id2states = {j: i for i, j in self.states2id.items()}
-        self.size = len(states)
-        self.pi = np.zeros((1, self.size))
-        self.trans = np.zeros((self.size, self.size))
-
-    def fit(self, seqs):
-        # 初始状态的参数学习
-        for seq in seqs:
-            init = seq
-            state_id = self.states2id[init]
-            self.pi[0][state_id] += 1
-        self.pi = self.pi / np.sum(self.pi)
-
-        # 状态转移矩阵参数学习
-        for i in range(len(seqs) - 1):
-            state1, state2 = seqs[i], seqs[i + 1]
-            id1 = self.states2id[state1]
-            id2 = self.states2id[state2]
-            self.trans[id1][id2] += 1
-
-        # 归一化处理
-        row_sums = np.sum(self.trans, axis=1, keepdims=True)
-        self.trans = self.trans / np.where(row_sums == 0, 1, row_sums)  # 避免除以零
-
-def adj2stat_bynodes(graph_adjacency_matrix_list, node_index, channal_num):
-    states = set([i for i in range(channal_num + 1)])
-    seq = []
-    threshold = 5
-    for graph_adjacency_matrix in graph_adjacency_matrix_list:
-        seq.append(np.sum(graph_adjacency_matrix[node_index] > threshold))
-    return states, seq
-
 def generate_transition_matrix_and_adj_features(eeg_data, corr_matrixs):
     channal_num = 24
     transition_matrices = []
@@ -160,46 +92,12 @@ def generate_transition_matrix_and_adj_features(eeg_data, corr_matrixs):
         transition_matrix = np.array([mc.trans for mc in MC])
         transition_matrices.append(transition_matrix)
         adj_features.append(adj_matrix.flatten())  # 展平邻接矩阵特征
+
+    states, seq = adj2stat_connected_components(corr_matrixs[0], channal_num)
+    MC_connected_components = MarkovChain(states)
+    transition_matrices.append(MC_connected_components.trans)
+
     return np.array(transition_matrices), np.array(adj_features)
-
-def train(X_train, y_train, X_test, y_test):
-    # 超参数设置
-    input_dim = X_train.shape[1]  # 输入特征维度
-    hidden_dim = 256  # 隐藏层单元数
-    output_dim = 2  # 输出类别数（健康和患病）
-
-    # 模型、损失函数和优化器
-    model = MLPClassifier(input_dim, hidden_dim, output_dim)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-    # 训练模型
-    num_epochs = 60
-    for epoch in range(num_epochs):
-        model.train()
-        inputs = torch.tensor(X_train, dtype=torch.float32)
-        labels = torch.tensor(y_train, dtype=torch.long)
-
-        # 前向传播
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-
-        # 反向传播和优化
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
-
-    # 测试模型
-    X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-    y_test_tensor = torch.tensor(y_test, dtype=torch.long)
-    model.eval()
-    with torch.no_grad():
-        predictions = model(X_test_tensor).argmax(axis=1)
-        accuracy = (predictions == y_test_tensor).float().mean()
-        print(f'Test Accuracy: {accuracy:.4f}')
-        print("\nClassification Report:\n", classification_report(y_test, predictions.numpy(), target_names=['Healthy', 'Sick'], labels=[0, 1]))
 
 if __name__ == "__main__":
     # 读取数据
@@ -287,4 +185,4 @@ if __name__ == "__main__":
     X_test = scaler.transform(X_test)
     
     # 训练和测试模型
-    train(X_train, y_train, X_test, y_test)
+    train_test(X_train, y_train, X_test, y_test)
