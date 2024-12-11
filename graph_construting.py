@@ -109,8 +109,8 @@ def read_all_data():
                         +[f'data/healthy/S10/EEGsigsactive_subjectS10_session20230831_block{i}.mat' for i in range(1, 4)] \
                         + [f'data/healthy/S10/EEGsigsimagined_subjectS10_session20230831_block{i}.mat' for i in range(1, 7)]  \
 
-    eeg_data_healthy, labels_healthy, corr_matrixs_healthy = process_files3(healthy_file_names)
-    eeg_data_sick, labels_sick, corr_matrixs_sick = process_files3(sick_file_names)
+    eeg_data_healthy, labels_healthy, corr_matrixs_healthy = process_files2(healthy_file_names)
+    eeg_data_sick, labels_sick, corr_matrixs_sick = process_files2(sick_file_names)
     sick_lables = np.array([0] * len(eeg_data_healthy) + [1] * len(eeg_data_sick))
     return eeg_data_healthy+eeg_data_sick,sick_lables,corr_matrixs_healthy+corr_matrixs_sick
 

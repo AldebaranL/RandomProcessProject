@@ -4,6 +4,7 @@ import torch.optim as optim
 from graph_construting import *
 from markov_chain import *
 from sklearn.metrics import classification_report
+from sklearn.model_selection import KFold
 
 # 定义 MLP 模型
 class MLPClassifier(nn.Module):
@@ -15,6 +16,7 @@ class MLPClassifier(nn.Module):
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, output_dim),
+            #nn.Sigmoid()  # 用于2分类
             nn.Softmax(dim=1)  # 用于多分类
         )
 
@@ -35,6 +37,7 @@ def train(X_train,y_train,num_epochs,model,optimizer):
         optimizer.step()
         if (epoch + 1) % 10 == 0:
             print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
+    return model,optimizer
 
 def test(X_test,y_test,model):
     # 测试模型
@@ -45,8 +48,9 @@ def test(X_test,y_test,model):
         predictions = model(X_test_tensor).argmax(axis=1)
         accuracy = (predictions == y_test_tensor).float().mean()
         print(f'Test Accuracy: {accuracy:.4f}')
-        print("\nClassification Report:\n", classification_report(y_test, predictions.numpy(),target_names=['Healthy', 'Sick'], labels=[0, 1]))
+        #print("\nClassification Report:\n", classification_report(y_test, predictions.numpy(),target_names=['Healthy', 'Sick'], labels=[0, 1]))
 
+    return accuracy,predictions.numpy()
 
 def split_dataset(X, y, train_ratio=0.8, test_ratio=0.2, random_seed=42):
     if random_seed is not None:
@@ -65,33 +69,50 @@ if __name__ == "__main__":
 
     #eeg_data,lables,corr_matrixs = read_all_data()
     #print(len(eeg_data),len(eeg_data[0]),eeg_data[0][0],len(lables),len(corr_matrixs),len(corr_matrixs[0]),corr_matrixs[0][0])
-    #X,y = get_features(eeg_data,lables,corr_matrixs)
+    #X,y = get_MC_features(eeg_data,lables,corr_matrixs)
     #X为 (sample_num, feather_num(24nodes+1),channal_num,channal_num); y为(sample_num,)
-    #np.save("X1.npy", X)
-    #np.save("y1.npy", y)
+    #np.save("X_MC_graph.npy", X)
+    #np.save("y_no_cut.npy", y)
 
-    X = np.load("X1.npy",allow_pickle=True)
-    y = np.load("y1.npy",allow_pickle=True)
-    print(X.shape,y.shape)#(1158, 25, 24, 24) (1158,)
-    print(type(X))#<class 'numpy.ndarray'>
-
-    X_train, y_train, X_test, y_test = split_dataset(X,y)
-    print(y_test)
-    X_train_flat = X_train.reshape(X_train.shape[0], -1)
-    X_test_flat = X_test.reshape(X_test.shape[0], -1)
-
+    X_MC1 = np.load("X_MC_degree_no_cut.npy",allow_pickle=True)
+    X_MC2 = np.load("X_MC_graph_no_cut.npy", allow_pickle=True)
+    y = np.load("y_no_cut.npy",allow_pickle=True)
+    print(X_MC1.shape,X_MC2.shape,y.shape)#(1158, 25, 24, 24) (1158,)
+    #print(type(X_MC))#<class 'numpy.ndarray'>
+    X_MC_flat1 = X_MC1[:,:24,:,:].reshape(X_MC1.shape[0], -1)
+    X_MC_flat2 = X_MC2[:,1,:,:].reshape(X_MC2.shape[0], -1)
+    #X_wavelet = get_transform_feature(eeg_data)
+    #np.save("X_wavelet.npy", X_wavelet)
+    X_wavelet = np.load("X_wavelet_no_cut.npy", allow_pickle=True)
+    print(X_wavelet.shape)
+    X = np.hstack((X_MC_flat1,X_MC_flat2))
+    #X = X_wavelet
+    #X_train, y_train, X_test, y_test = split_dataset(X,y)
+    print(X.shape)
+    #y_train = np.expand_dims(y_train, 1)
+    #y_test = np.expand_dims(y_test, 1)
     # 超参数设置
-    input_dim = X_train_flat.shape[1]  # 输入特征维度
+    input_dim = X.shape[1]  # 输入特征维度
     hidden_dim = 128  # 隐藏层单元数
     output_dim = 2  # 输出类别数
     learning_rate = 0.01
     num_epochs = 50
-    # 初始化模型、损失函数和优化器
-    model = MLPClassifier(input_dim, hidden_dim, output_dim)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
-    #X_train_flat = np.array(X_train_flat, dtype=np.float32)
-    print(X_train_flat.shape)
-    train(X_train_flat,y_train,num_epochs,model,optimizer)
-    test(X_test_flat,y_test,model)
+    print(input_dim)
+    # n-CV
+    kf = KFold(n_splits=10, shuffle=True, random_state=42)
+    accuracys,predictions = [],[]
+    # 遍历每一折
+    for fold, (train_index, val_index) in enumerate(kf.split(X)):
+        # 初始化模型、损失函数和优化器
+        model = MLPClassifier(input_dim, hidden_dim, output_dim)
+        #criterion = nn.BCELoss()#
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        X_train, X_test = X[train_index], X[val_index]
+        y_train, y_test = y[train_index], y[val_index]
+        #X_train_flat = np.array(X_train_flat, dtype=np.float32)
+        print(X_train.shape)
+        train(X_train,y_train,num_epochs,model,optimizer)
+        accuracy,prediction = test(X_test,y_test,model)
+        accuracys.append(accuracy)
+    print(np.mean(accuracys))

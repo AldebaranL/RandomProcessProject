@@ -1,0 +1,11 @@
+十折交叉验证平均准确率：
+eeg_data:
+MC_degree:0.67857146
+MC_connectivity:0.3857143
+MC_vertex_connectivity:0.37142858
+wavelet：0.4482143
+MC_degree+MC_connectivity：0.6571429
+MC_degree+MC_vertex_connectivity：0.71071434
+MC_degree+MC_connectivity+MC_vertex_connectivity: 0.7017857
+MC_degree+MC_connectivity+wavelet：0.4267857
+MC_degree+MC_connectivity+MC_vertex_connectivity+wavelet:0.45535713
