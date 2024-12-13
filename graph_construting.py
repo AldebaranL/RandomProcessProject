@@ -126,14 +126,14 @@ def show_correlation(corr_matrix):
 
 #channels_num = 24
 
-def show_graph():
+def show_graph(corr_matrixs,index,channels_num=24):
     G = nx.Graph()
     threshold = 10
     for i in range(channels_num):
         G.add_node(i)
         for j in range(i + 1, channels_num):
-            if np.abs(corr_matrixs[0][0][i, j]) > threshold:
-                G.add_edge(i, j, weight=corr_matrixs[0][0][i, j])
+            if np.abs(corr_matrixs[index][i, j]) > threshold:
+                G.add_edge(i, j, weight=corr_matrixs[index][i, j])
 
     if G.number_of_nodes()==0:
         print("graph is null")
@@ -145,10 +145,11 @@ def show_graph():
     nx.draw_networkx_edges(G, pos, edgelist=edges, edge_color='gray', alpha=0.5)
     nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): f"{w['weight']:.2f}" for u, v, w in edges})
     nx.draw_networkx_labels(G, pos, font_size=8)
-    plt.title('EEG network graph')
-    plt.show()
+    plt.title('EEG graph')
+    plt.savefig("graph_{}.png".format(index))
 
 #show_graph()
 if __name__ == '__main__':
     eeg_data_healthy, labels_healthy, corr_matrixs_healthy = process_files2([f'data/DATASET/EEGsigsimagined_subjectP1_session20170901_block1.mat'])
     print(len(eeg_data_healthy), labels_healthy, len(corr_matrixs_healthy))
+    show_graph(corr_matrixs_healthy[0],2)

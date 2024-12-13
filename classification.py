@@ -5,6 +5,7 @@ from graph_construting import *
 from markov_chain import *
 from sklearn.metrics import classification_report
 from sklearn.model_selection import KFold
+import graphviz
 
 # 定义 MLP 模型
 class MLPClassifier(nn.Module):
