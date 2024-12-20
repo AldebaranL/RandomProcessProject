@@ -2,6 +2,8 @@
 林语盈 王婧
 
 利用马尔可夫链进行eeg分类
+# Run this code
+python classification.py
 
 # 代码结构
 
